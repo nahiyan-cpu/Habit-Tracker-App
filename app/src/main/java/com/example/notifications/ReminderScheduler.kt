@@ -130,10 +130,17 @@ class ReminderScheduler(private val context: Context) {
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(context).notify(
-            ("milestone_${habitName}_$streakDays").hashCode(),
-            notification
-        )
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                NotificationManagerCompat.from(context).notify(
+                    ("milestone_${habitName}_$streakDays").hashCode(),
+                    notification
+                )
+            } catch (_: SecurityException) {
+            }
+        }
     }
 
     companion object {
@@ -207,8 +214,15 @@ class HabitReminderWorker(
                     .setAutoCancel(true)
                     .build()
 
-                NotificationManagerCompat.from(appContext).notify(reminder.id.hashCode(), notif)
-                db.reminderDao().markNotified(reminder.id, todayIso)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    try {
+                        NotificationManagerCompat.from(appContext).notify(reminder.id.hashCode(), notif)
+                        db.reminderDao().markNotified(reminder.id, todayIso)
+                    } catch (_: SecurityException) {
+                    }
+                }
             }
         }
         return Result.success()
@@ -267,7 +281,14 @@ class MissedHabitCheckWorker(
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(appContext).notify(("missed_$todayIso").hashCode(), notif)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                NotificationManagerCompat.from(appContext).notify(("missed_$todayIso").hashCode(), notif)
+            } catch (_: SecurityException) {
+            }
+        }
         return Result.success()
     }
 }
