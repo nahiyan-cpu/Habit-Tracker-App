@@ -1,5 +1,6 @@
 package com.example.auth
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.util.Log
@@ -8,7 +9,6 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
-import com.example.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -48,9 +48,8 @@ object GoogleAuthHelper {
             onAuthSuccess()
             return
         }
-        val clientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (e: Exception) {
+        val clientId = resolveWebClientId(context)
+        if (clientId.isNullOrBlank()) {
             onUnauthenticated()
             return
         }
@@ -91,9 +90,8 @@ object GoogleAuthHelper {
         scope: CoroutineScope,
         onAuthCancelled: () -> Unit = {}
     ) {
-        val clientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (e: Exception) {
+        val clientId = resolveWebClientId(context)
+        if (clientId.isNullOrBlank()) {
             onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
             return
         }
@@ -124,6 +122,13 @@ object GoogleAuthHelper {
                 onAuthError(e.localizedMessage ?: "Sign in failed")
             }
         }
+    }
+
+    @SuppressLint("DiscouragedApi")
+    private fun resolveWebClientId(context: Context): String? {
+        val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+        if (resId == 0) return null
+        return runCatching { context.getString(resId) }.getOrNull()
     }
 
     fun signOut(
