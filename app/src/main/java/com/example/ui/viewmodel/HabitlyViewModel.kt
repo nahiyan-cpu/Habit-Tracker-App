@@ -64,6 +64,12 @@ class AppPreferencesViewModel(
             prefsDataStore.setOnboardingCompleted(true)
         }
     }
+
+    fun setLocalModeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefsDataStore.setLocalModeEnabled(enabled)
+        }
+    }
 }
 
 class MainViewModel(

@@ -28,15 +28,16 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.GoogleAuthHelper
 import com.example.auth.authStateFlow
 import com.example.di.HabitlyApplication
+import com.example.ui.screens.ActiveSessionUser
 import com.example.ui.screens.AuthFlowHost
 import com.example.ui.screens.MainAppShell
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.HabitlyTheme
 import com.example.ui.viewmodel.AppPreferencesViewModel
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,35 +51,66 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun HabitlyRoot() {
+    val context = LocalContext.current
+    val app = remember(context) { context.applicationContext as HabitlyApplication }
+
     val prefsViewModel: AppPreferencesViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
-                val app = checkNotNull(this[APPLICATION_KEY]) as HabitlyApplication
-                AppPreferencesViewModel(app.container.preferencesDataStore)
+                val application = checkNotNull(this[APPLICATION_KEY]) as HabitlyApplication
+                AppPreferencesViewModel(application.container.preferencesDataStore)
             }
         }
     )
 
     val preferences by prefsViewModel.preferences.collectAsStateWithLifecycle()
-    val auth = remember { Firebase.auth }
-    val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
+    val firebaseAuth = remember(app) { app.container.auth }
+    val authFlow = remember(firebaseAuth) {
+        firebaseAuth?.authStateFlow() ?: flowOf<FirebaseUser?>(null)
+    }
+    val currentUser by authFlow.collectAsStateWithLifecycle(initialValue = firebaseAuth?.currentUser)
 
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember(context) { CredentialManager.create(context) }
 
     var showSplash by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
-        GoogleAuthHelper.attemptAutoSignIn(
-            context = context,
-            credentialManager = credentialManager,
-            onAuthSuccess = {},
-            onUnauthenticated = {},
-            scope = scope
-        )
+    LaunchedEffect(firebaseAuth) {
+        if (firebaseAuth != null) {
+            GoogleAuthHelper.attemptAutoSignIn(
+                context = context,
+                credentialManager = credentialManager,
+                onAuthSuccess = {},
+                onUnauthenticated = {},
+                scope = scope
+            )
+        }
         delay(650L)
         showSplash = false
+    }
+
+    val isCloudAvailable = firebaseAuth != null
+    val sessionUser: ActiveSessionUser? = when {
+        currentUser != null -> {
+            val u = currentUser!!
+            ActiveSessionUser(
+                uid = u.uid,
+                displayName = u.displayName ?: "Habitly Member",
+                email = u.email ?: "",
+                photoUrl = u.photoUrl?.toString(),
+                isCloudBacked = true
+            )
+        }
+        !isCloudAvailable && preferences.localModeEnabled -> {
+            ActiveSessionUser(
+                uid = "local_habitly_user",
+                displayName = "Habitly Explorer",
+                email = "Local Device Storage",
+                photoUrl = null,
+                isCloudBacked = false
+            )
+        }
+        else -> null
     }
 
     HabitlyTheme(
@@ -99,13 +131,19 @@ fun HabitlyRoot() {
                         onFinish = { prefsViewModel.completeOnboarding() }
                     )
                 }
-                currentUser == null -> {
-                    AuthFlowHost(onAuthSuccess = {})
+                sessionUser == null -> {
+                    AuthFlowHost(
+                        isCloudAvailable = isCloudAvailable,
+                        onContinueOffline = { prefsViewModel.setLocalModeEnabled(true) },
+                        onAuthSuccess = {}
+                    )
                 }
                 else -> {
-                    val user = currentUser!!
-                    key(user.uid) {
-                        MainAppShell(firebaseUser = user)
+                    key(sessionUser.uid) {
+                        MainAppShell(
+                            sessionUser = sessionUser,
+                            onLocalSignOut = { prefsViewModel.setLocalModeEnabled(false) }
+                        )
                     }
                 }
             }

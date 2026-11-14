@@ -305,6 +305,9 @@ class HabitRepository(
     }
 
     suspend fun syncWithCloud(userId: String): SyncResult {
+        if (!cloudSync.isAvailable) {
+            return SyncResult.Error("Cloud sync requires Firebase configuration. Your habits are safely saved locally.")
+        }
         return try {
             val bundle = cloudSync.fetchAllRemoteData()
 

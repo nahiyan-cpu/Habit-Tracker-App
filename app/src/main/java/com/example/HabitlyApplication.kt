@@ -10,6 +10,8 @@ import com.example.data.remote.CloudSyncRepository
 import com.example.notifications.NotificationChannels
 import com.example.notifications.ReminderScheduler
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -17,8 +19,20 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
 
     val databaseId: String = appContext.getString(R.string.firestore_database_id)
-    val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(databaseId)
-    val auth = Firebase.auth
+    val isFirebaseConfigured: Boolean = FirebaseApp.getApps(appContext).isNotEmpty() ||
+        runCatching { FirebaseApp.initializeApp(appContext) != null }.getOrDefault(false)
+
+    val firestore: FirebaseFirestore? = if (isFirebaseConfigured) {
+        runCatching { FirebaseFirestore.getInstance(databaseId) }.getOrNull()
+    } else {
+        null
+    }
+
+    val auth: FirebaseAuth? = if (isFirebaseConfigured) {
+        runCatching { Firebase.auth }.getOrNull()
+    } else {
+        null
+    }
 
     val roomDatabase: HabitlyDatabase = HabitlyDatabase.getInstance(appContext)
     val preferencesDataStore: AppPreferencesDataStore = AppPreferencesDataStore(appContext)

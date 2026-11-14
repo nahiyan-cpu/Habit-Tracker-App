@@ -21,15 +21,23 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 
 class CloudSyncRepository(
-    private val db: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val db: FirebaseFirestore?,
+    private val auth: FirebaseAuth?
 ) {
+    val isAvailable: Boolean
+        get() = db != null && auth != null
+
+    private fun requireDb(): FirebaseFirestore {
+        return db
+            ?: throw IllegalStateException("Cloud sync is unavailable in this offline build.")
+    }
+
     private fun requireUserId(): String {
-        return auth.currentUser?.uid
+        return auth?.currentUser?.uid
             ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
     }
 
-    private fun userDocRef(uid: String) = db.collection("users").document(uid)
+    private fun userDocRef(uid: String) = requireDb().collection("users").document(uid)
 
     fun observeRemoteHabits(): Flow<List<HabitDoc>> = flow {
         val uid = requireUserId()
@@ -264,7 +272,7 @@ class CloudSyncRepository(
             for (sub in subcollections) {
                 val docs = baseRef.collection(sub).get().await().documents
                 for (chunk in docs.chunked(400)) {
-                    val batch = db.batch()
+                    val batch = requireDb().batch()
                     chunk.forEach { batch.delete(it.reference) }
                     batch.commit().await()
                 }

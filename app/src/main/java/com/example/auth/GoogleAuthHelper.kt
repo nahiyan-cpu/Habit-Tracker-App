@@ -14,6 +14,7 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -44,6 +45,10 @@ object GoogleAuthHelper {
         onUnauthenticated: () -> Unit,
         scope: CoroutineScope
     ) {
+        if (FirebaseApp.getApps(context).isEmpty()) {
+            onUnauthenticated()
+            return
+        }
         if (Firebase.auth.currentUser != null) {
             onAuthSuccess()
             return
@@ -90,6 +95,10 @@ object GoogleAuthHelper {
         scope: CoroutineScope,
         onAuthCancelled: () -> Unit = {}
     ) {
+        if (FirebaseApp.getApps(context).isEmpty()) {
+            onAuthError("Google Sign-In is unavailable in this build. Tap 'Continue in Local Mode' below to start.")
+            return
+        }
         val clientId = resolveWebClientId(context)
         if (clientId.isNullOrBlank()) {
             onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
@@ -143,7 +152,7 @@ object GoogleAuthHelper {
                 } catch (e: Exception) {
                     Log.w("Auth", "Failed to clear credential state: ${e.message}")
                 } finally {
-                    Firebase.auth.signOut()
+                    runCatching { Firebase.auth.signOut() }
                     onSignOutComplete()
                 }
             }

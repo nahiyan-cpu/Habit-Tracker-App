@@ -65,7 +65,11 @@ import com.example.auth.GoogleAuthHelper
 import com.example.ui.navigation.AuthRoute
 
 @Composable
-fun AuthFlowHost(onAuthSuccess: () -> Unit) {
+fun AuthFlowHost(
+    isCloudAvailable: Boolean = true,
+    onContinueOffline: () -> Unit = {},
+    onAuthSuccess: () -> Unit
+) {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
@@ -73,6 +77,8 @@ fun AuthFlowHost(onAuthSuccess: () -> Unit) {
     ) {
         composable<AuthRoute.Login> {
             LoginScreen(
+                isCloudAvailable = isCloudAvailable,
+                onContinueOffline = onContinueOffline,
                 onAuthSuccess = onAuthSuccess,
                 onNavigateRegister = { navController.navigate(AuthRoute.Register) },
                 onNavigateForgotPassword = { navController.navigate(AuthRoute.ForgotPassword) }
@@ -94,6 +100,8 @@ fun AuthFlowHost(onAuthSuccess: () -> Unit) {
 
 @Composable
 fun LoginScreen(
+    isCloudAvailable: Boolean = true,
+    onContinueOffline: () -> Unit = {},
     onAuthSuccess: () -> Unit,
     onNavigateRegister: () -> Unit,
     onNavigateForgotPassword: () -> Unit
@@ -179,18 +187,41 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            GoogleSignInButton(
-                label = "Sign in with Google",
-                onAuthSuccess = {
-                    errorMessage = null
-                    onAuthSuccess()
-                },
-                onAuthError = { errorMessage = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .testTag("google_sign_in_button")
-            )
+            if (isCloudAvailable) {
+                GoogleSignInButton(
+                    label = "Sign in with Google",
+                    onAuthSuccess = {
+                        errorMessage = null
+                        onAuthSuccess()
+                    },
+                    onAuthError = { errorMessage = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .testTag("google_sign_in_button")
+                )
+            } else {
+                Button(
+                    onClick = onContinueOffline,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .testTag("continue_local_mode_button")
+                ) {
+                    Text(
+                        text = "Continue in Local Mode",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Offline storage is active on this device. Cloud Sync is available when built with google-services.json.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(12.dp))

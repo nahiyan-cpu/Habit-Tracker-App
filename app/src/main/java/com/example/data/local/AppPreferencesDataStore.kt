@@ -27,7 +27,8 @@ data class AppPreferencesState(
     val streakMilestoneNotifications: Boolean = true,
     val lastQuoteIndex: Int = -1,
     val lastSyncEpochMs: Long = 0L,
-    val activeUserId: String = ""
+    val activeUserId: String = "",
+    val localModeEnabled: Boolean = false
 )
 
 class AppPreferencesDataStore(private val context: Context) {
@@ -45,6 +46,7 @@ class AppPreferencesDataStore(private val context: Context) {
         val LAST_QUOTE_INDEX = intPreferencesKey("last_quote_index")
         val LAST_SYNC_EPOCH_MS = longPreferencesKey("last_sync_epoch_ms")
         val ACTIVE_USER_ID = stringPreferencesKey("active_user_id")
+        val LOCAL_MODE_ENABLED = booleanPreferencesKey("local_mode_enabled")
     }
 
     val preferencesFlow: Flow<AppPreferencesState> = context.habitlyDataStore.data.map { prefs ->
@@ -60,7 +62,8 @@ class AppPreferencesDataStore(private val context: Context) {
             streakMilestoneNotifications = prefs[Keys.STREAK_MILESTONE_NOTIFICATIONS] ?: true,
             lastQuoteIndex = prefs[Keys.LAST_QUOTE_INDEX] ?: -1,
             lastSyncEpochMs = prefs[Keys.LAST_SYNC_EPOCH_MS] ?: 0L,
-            activeUserId = prefs[Keys.ACTIVE_USER_ID] ?: ""
+            activeUserId = prefs[Keys.ACTIVE_USER_ID] ?: "",
+            localModeEnabled = prefs[Keys.LOCAL_MODE_ENABLED] ?: false
         )
     }
 
@@ -112,5 +115,9 @@ class AppPreferencesDataStore(private val context: Context) {
 
     suspend fun setActiveUserId(userId: String) {
         context.habitlyDataStore.edit { it[Keys.ACTIVE_USER_ID] = userId }
+    }
+
+    suspend fun setLocalModeEnabled(enabled: Boolean) {
+        context.habitlyDataStore.edit { it[Keys.LOCAL_MODE_ENABLED] = enabled }
     }
 }

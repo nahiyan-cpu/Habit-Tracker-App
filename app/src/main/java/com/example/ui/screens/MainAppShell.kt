@@ -53,7 +53,14 @@ import com.example.auth.GoogleAuthHelper
 import com.example.di.HabitlyApplication
 import com.example.ui.navigation.AppRoute
 import com.example.ui.viewmodel.MainViewModel
-import com.google.firebase.auth.FirebaseUser
+
+data class ActiveSessionUser(
+    val uid: String,
+    val displayName: String,
+    val email: String,
+    val photoUrl: String? = null,
+    val isCloudBacked: Boolean = true
+)
 
 private data class TopLevelTab(
     val route: AppRoute,
@@ -72,24 +79,27 @@ private val topLevelTabs = listOf(
 )
 
 @Composable
-fun MainAppShell(firebaseUser: FirebaseUser) {
+fun MainAppShell(
+    sessionUser: ActiveSessionUser,
+    onLocalSignOut: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember(context) { CredentialManager.create(context) }
 
     // ViewModel keyed by authenticated uid so switching accounts creates a fresh ViewModel
     val viewModel: MainViewModel = viewModel(
-        key = firebaseUser.uid,
+        key = sessionUser.uid,
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) as HabitlyApplication
                 MainViewModel(
                     repository = app.container.habitRepository,
                     prefsDataStore = app.container.preferencesDataStore,
-                    currentUserId = firebaseUser.uid,
-                    initialDisplayName = firebaseUser.displayName ?: "Habitly Member",
-                    initialEmail = firebaseUser.email ?: "",
-                    initialPhotoUrl = firebaseUser.photoUrl?.toString()
+                    currentUserId = sessionUser.uid,
+                    initialDisplayName = sessionUser.displayName.ifBlank { "Habitly Member" },
+                    initialEmail = sessionUser.email,
+                    initialPhotoUrl = sessionUser.photoUrl
                 )
             }
         }
@@ -237,11 +247,19 @@ fun MainAppShell(firebaseUser: FirebaseUser) {
                             onOpenBackupSync = { navController.navigate(AppRoute.BackupAndSync) },
                             onExportData = { viewModel.exportData(context) },
                             onSignOut = {
-                                GoogleAuthHelper.signOut(credentialManager, scope)
+                                if (sessionUser.isCloudBacked) {
+                                    GoogleAuthHelper.signOut(credentialManager, scope)
+                                } else {
+                                    onLocalSignOut()
+                                }
                             },
                             onDeleteAccount = {
                                 viewModel.deleteAccountData {
-                                    GoogleAuthHelper.signOut(credentialManager, scope)
+                                    if (sessionUser.isCloudBacked) {
+                                        GoogleAuthHelper.signOut(credentialManager, scope)
+                                    } else {
+                                        onLocalSignOut()
+                                    }
                                 }
                             }
                         )
