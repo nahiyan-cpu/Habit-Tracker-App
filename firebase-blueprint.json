@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user's Habitly profile, gamification totals, and synced app preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "Display name shown in greetings and profile." },
+        "email": { "type": "string", "description": "Authenticated email address." },
+        "photoUrl": { "type": "string", "description": "Optional profile avatar URL." },
+        "totalPoints": { "type": "integer", "description": "Accumulated reward points." },
+        "level": { "type": "integer", "description": "Current user level derived from points." },
+        "themeMode": { "type": "string", "enum": ["system", "light", "dark"], "description": "Theme preference." },
+        "accentColorHex": { "type": "string", "description": "Selected accent color hex." },
+        "firstDayOfWeek": { "type": "integer", "description": "1 (Monday) through 7 (Sunday)." },
+        "use24HourFormat": { "type": "boolean", "description": "Preferred time format." },
+        "weeklyGoalPercent": { "type": "integer", "description": "Weekly target completion percentage." },
+        "notificationsEnabled": { "type": "boolean", "description": "Global habit reminders toggle." },
+        "missedReminderEnabled": { "type": "boolean", "description": "Evening missed-habit reminder toggle." },
+        "streakMilestoneNotifications": { "type": "boolean", "description": "Streak milestone notifications toggle." },
+        "lastSyncedAtEpochMs": { "type": "integer", "description": "Last successful cloud sync timestamp in epoch ms." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "displayName", "email", "totalPoints", "level", "themeMode", "createdAt", "updatedAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Habit category with custom icon and color.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "iconKey": { "type": "string" },
+        "colorHex": { "type": "string" },
+        "isDefault": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "name", "iconKey", "colorHex", "isDefault", "deleted", "createdAt", "updatedAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "User habit definition with schedule, reminders, and archive/pause flags.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "iconKey": { "type": "string" },
+        "colorHex": { "type": "string" },
+        "startDate": { "type": "string", "description": "YYYY-MM-DD local date." },
+        "frequencyType": { "type": "string", "enum": ["daily", "days_per_week", "weekly", "monthly"] },
+        "targetDaysPerWeek": { "type": "integer" },
+        "scheduledWeekdays": { "type": "array", "description": "List of ISO weekday ints (1=Mon..7=Sun)." },
+        "scheduledMonthDays": { "type": "array", "description": "List of day-of-month ints (1..31)." },
+        "reminderTimes": { "type": "array", "description": "List of HH:mm reminder times." },
+        "remindersEnabled": { "type": "boolean" },
+        "targetDurationMinutes": { "type": "integer" },
+        "notes": { "type": "string" },
+        "isPaused": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "name", "categoryId", "iconKey", "colorHex", "startDate", "frequencyType", "targetDaysPerWeek", "remindersEnabled", "isPaused", "isArchived", "deleted", "createdAt", "updatedAt"]
+    },
+    "HabitCompletion": {
+      "title": "HabitCompletion",
+      "description": "Daily completion record keyed deterministically by habitId_dateIso.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "habitId": { "type": "string" },
+        "dateIso": { "type": "string", "description": "YYYY-MM-DD local calendar date." },
+        "completedAtEpochMs": { "type": "integer" },
+        "note": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "habitId", "dateIso", "completedAtEpochMs", "isCompleted", "createdAt", "updatedAt"]
+    },
+    "DailyJournal": {
+      "title": "DailyJournal",
+      "description": "Private daily reflection and mood entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dateIso": { "type": "string", "description": "YYYY-MM-DD local calendar date." },
+        "mood": { "type": "string", "enum": ["happy", "motivated", "neutral", "tired", "sad"] },
+        "content": { "type": "string" },
+        "habitId": { "type": "string" },
+        "deleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "dateIso", "mood", "content", "deleted", "createdAt", "updatedAt"]
+    },
+    "UserAchievement": {
+      "title": "UserAchievement",
+      "description": "Unlocked achievement badge record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "achievementKey": { "type": "string" },
+        "unlockedAtEpochMs": { "type": "integer" },
+        "pointsAwarded": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp (FieldValue.serverTimestamp())." }
+      },
+      "required": ["userId", "achievementKey", "unlockedAtEpochMs", "pointsAwarded", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Authenticated user's private profile and preference state."
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "User's habit categories."
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/Habit" },
+      "description": "User's tracked habits."
+    },
+    "/users/{userId}/completions/{completionId}": {
+      "schema": { "$ref": "#/entities/HabitCompletion" },
+      "description": "User's daily habit completion records."
+    },
+    "/users/{userId}/journals/{journalId}": {
+      "schema": { "$ref": "#/entities/DailyJournal" },
+      "description": "User's private daily journal entries."
+    },
+    "/users/{userId}/achievements/{achievementId}": {
+      "schema": { "$ref": "#/entities/UserAchievement" },
+      "description": "User's unlocked achievement badges."
+    }
+  }
+}

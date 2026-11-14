@@ -1,0 +1,271 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- Entity Validation Helpers ---
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() <= 200 &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.totalPoints is int && data.totalPoints >= 0 &&
+             data.level is int && data.level >= 1 &&
+             data.themeMode in ['system', 'light', 'dark'] &&
+             (!('accentColorHex' in data) || (data.accentColorHex is string && data.accentColorHex.size() <= 12)) &&
+             (!('firstDayOfWeek' in data) || (data.firstDayOfWeek is int && data.firstDayOfWeek >= 1 && data.firstDayOfWeek <= 7)) &&
+             (!('use24HourFormat' in data) || data.use24HourFormat is bool) &&
+             (!('weeklyGoalPercent' in data) || (data.weeklyGoalPercent is int && data.weeklyGoalPercent >= 10 && data.weeklyGoalPercent <= 100)) &&
+             (!('notificationsEnabled' in data) || data.notificationsEnabled is bool) &&
+             (!('missedReminderEnabled' in data) || data.missedReminderEnabled is bool) &&
+             (!('streakMilestoneNotifications' in data) || data.streakMilestoneNotifications is bool) &&
+             (!('lastSyncedAtEpochMs' in data) || (data.lastSyncedAtEpochMs is int && data.lastSyncedAtEpochMs >= 0)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCategory(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 50 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 40 &&
+             data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 12 &&
+             data.isDefault is bool &&
+             data.deleted is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidHabit(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 40 &&
+             data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 12 &&
+             data.startDate is string && data.startDate.size() == 10 &&
+             data.frequencyType in ['daily', 'days_per_week', 'weekly', 'monthly'] &&
+             data.targetDaysPerWeek is int && data.targetDaysPerWeek >= 1 && data.targetDaysPerWeek <= 7 &&
+             (!('scheduledWeekdays' in data) || (data.scheduledWeekdays is list && data.scheduledWeekdays.size() <= 7 && (data.scheduledWeekdays.size() == 0 || data.scheduledWeekdays[0] is int))) &&
+             (!('scheduledMonthDays' in data) || (data.scheduledMonthDays is list && data.scheduledMonthDays.size() <= 31 && (data.scheduledMonthDays.size() == 0 || data.scheduledMonthDays[0] is int))) &&
+             (!('reminderTimes' in data) || (data.reminderTimes is list && data.reminderTimes.size() <= 10 && (data.reminderTimes.size() == 0 || data.reminderTimes[0] is string))) &&
+             data.remindersEnabled is bool &&
+             (!('targetDurationMinutes' in data) || (data.targetDurationMinutes is int && data.targetDurationMinutes >= 0 && data.targetDurationMinutes <= 1440)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             data.isPaused is bool &&
+             data.isArchived is bool &&
+             data.deleted is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCompletion(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.habitId is string && data.habitId.size() >= 1 && data.habitId.size() <= 128 &&
+             data.dateIso is string && data.dateIso.size() == 10 &&
+             data.completedAtEpochMs is int && data.completedAtEpochMs >= 0 &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 500)) &&
+             data.isCompleted is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidJournal(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.dateIso is string && data.dateIso.size() == 10 &&
+             data.mood in ['happy', 'motivated', 'neutral', 'tired', 'sad'] &&
+             data.content is string && data.content.size() <= 2000 &&
+             (!('habitId' in data) || (data.habitId is string && data.habitId.size() <= 128)) &&
+             data.deleted is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUserAchievement(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.achievementKey is string && data.achievementKey.size() >= 1 && data.achievementKey.size() <= 64 &&
+             data.unlockedAtEpochMs is int && data.unlockedAtEpochMs >= 0 &&
+             data.pointsAwarded is int && data.pointsAwarded >= 0 && data.pointsAwarded <= 10000 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'email', 'totalPoints', 'level', 'themeMode', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'email', 'photoUrl', 'totalPoints', 'level',
+                         'themeMode', 'accentColorHex', 'firstDayOfWeek', 'use24HourFormat',
+                         'weeklyGoalPercent', 'notificationsEnabled', 'missedReminderEnabled',
+                         'streakMilestoneNotifications', 'lastSyncedAtEpochMs', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'email', 'photoUrl', 'totalPoints', 'level',
+                         'themeMode', 'accentColorHex', 'firstDayOfWeek', 'use24HourFormat',
+                         'weeklyGoalPercent', 'notificationsEnabled', 'missedReminderEnabled',
+                         'streakMilestoneNotifications', 'lastSyncedAtEpochMs', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /categories/{categoryId} {
+        allow get: if isOwner(userId) && isValidId(categoryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(categoryId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'iconKey', 'colorHex', 'isDefault', 'deleted', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'iconKey', 'colorHex', 'isDefault', 'deleted', 'createdAt', 'updatedAt']) &&
+                         isValidCategory(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(categoryId) &&
+                         isValidCategory(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'iconKey', 'colorHex', 'isDefault', 'deleted', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      match /habits/{habitId} {
+        allow get: if isOwner(userId) && isValidId(habitId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'categoryId', 'iconKey', 'colorHex', 'startDate',
+                           'frequencyType', 'targetDaysPerWeek', 'remindersEnabled',
+                           'isPaused', 'isArchived', 'deleted', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'description', 'categoryId', 'iconKey', 'colorHex',
+                           'startDate', 'frequencyType', 'targetDaysPerWeek', 'scheduledWeekdays',
+                           'scheduledMonthDays', 'reminderTimes', 'remindersEnabled',
+                           'targetDurationMinutes', 'notes', 'isPaused', 'isArchived',
+                           'deleted', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidHabit(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(habitId) &&
+                         isValidHabit(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'description', 'categoryId', 'iconKey', 'colorHex',
+                           'startDate', 'frequencyType', 'targetDaysPerWeek', 'scheduledWeekdays',
+                           'scheduledMonthDays', 'reminderTimes', 'remindersEnabled',
+                           'targetDurationMinutes', 'notes', 'isPaused', 'isArchived',
+                           'deleted', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(habitId);
+      }
+
+      match /completions/{completionId} {
+        allow get: if isOwner(userId) && isValidId(completionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(completionId) &&
+                         incoming().keys().hasAll(['userId', 'habitId', 'dateIso', 'completedAtEpochMs', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'habitId', 'dateIso', 'completedAtEpochMs', 'note', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                         isValidCompletion(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(completionId) &&
+                         isValidCompletion(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().habitId == existing().habitId &&
+                         incoming().dateIso == existing().dateIso &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['completedAtEpochMs', 'note', 'isCompleted', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(completionId);
+      }
+
+      match /journals/{journalId} {
+        allow get: if isOwner(userId) && isValidId(journalId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(journalId) &&
+                         incoming().keys().hasAll(['userId', 'dateIso', 'mood', 'content', 'deleted', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'dateIso', 'mood', 'content', 'habitId', 'deleted', 'createdAt', 'updatedAt']) &&
+                         isValidJournal(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(journalId) &&
+                         isValidJournal(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['dateIso', 'mood', 'content', 'habitId', 'deleted', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(journalId);
+      }
+
+      match /achievements/{achievementId} {
+        allow get: if isOwner(userId) && isValidId(achievementId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(achievementId) &&
+                         incoming().keys().hasAll(['userId', 'achievementKey', 'unlockedAtEpochMs', 'pointsAwarded', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'achievementKey', 'unlockedAtEpochMs', 'pointsAwarded', 'createdAt', 'updatedAt']) &&
+                         isValidUserAchievement(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(achievementId) &&
+                         isValidUserAchievement(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().achievementKey == existing().achievementKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['unlockedAtEpochMs', 'pointsAwarded', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(achievementId);
+      }
+    }
+  }
+}

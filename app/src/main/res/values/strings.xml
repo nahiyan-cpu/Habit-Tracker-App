@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Habitly</string>
+    <string name="widget_description">Track today\'s habits and your current streak right from your home screen.</string>
+</resources>
